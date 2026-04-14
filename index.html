@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e293b">
+    <title>Gestão de Stock</title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #f1f5f9;
+        }
+
+        .tab-button {
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-button.active {
+            background-color: #ffffff;
+            border-color: #2563eb;
+            color: #2563eb;
+            font-weight: 700;
+        }
+
+        .tab-button:not(.active) {
+            color: #94a3b8;
+        }
+
+        .product-details {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .product-item.expanded .product-details {
+            max-height: 250px;
+        }
+
+        .product-item.expanded .chevron {
+            transform: rotate(180deg);
+        }
+
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        .main-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .card-critical { border-left: 4px solid #ef4444; }
+        .card-warning { border-left: 4px solid #f59e0b; }
+        .card-ok { border-left: 4px solid #10b981; }
+    </style>
+</head>
+<body class="text-slate-900">
+
+    <header class="bg-slate-800 text-white pt-4 px-4 shadow-md sticky top-0 z-50">
+        <div class="main-container">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-warehouse text-blue-400 text-xl"></i>
+                    <h1 class="text-lg font-bold tracking-tight">Gestão de Stock</h1>
+                </div>
+                <div class="text-[10px] bg-slate-700 px-2 py-1 rounded font-mono border border-slate-600">PWA Ready</div>
+            </div>
+            
+            <div class="flex overflow-x-auto no-scrollbar gap-1">
+                <button onclick="switchTab('catalog')" id="nav-catalog" class="tab-button active py-2 px-4 text-xs uppercase tracking-wider flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-list"></i> Produtos
+                </button>
+                <button onclick="switchTab('stock')" id="nav-stock" class="tab-button py-2 px-4 text-xs uppercase tracking-wider flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-boxes"></i> Estoque
+                </button>
+                <button onclick="switchTab('report')" id="nav-report" class="tab-button py-2 px-4 text-xs uppercase tracking-wider flex items-center gap-2 whitespace-nowrap">
+                    <i class="fas fa-file-alt"></i> Relatório
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-container p-4 pb-20">
+        <!-- CONTEÚDO DAS ABAS -->
+        <section id="tab-content-catalog" class="space-y-4">
+            <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-500 uppercase">Lista de Itens</h2>
+                    <p class="text-[10px] text-slate-400 font-medium">Toque para ver detalhes</p>
+                </div>
+                <button onclick="openModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md shadow-blue-200 active:scale-95 transition-all">
+                    <i class="fas fa-plus mr-1"></i> Novo
+                </button>
+            </div>
+            <div id="catalog-list" class="space-y-2"></div>
+        </section>
+
+        <section id="tab-content-stock" class="hidden space-y-3">
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <h2 class="text-sm font-bold text-slate-500 uppercase">Gestão Diária</h2>
+                <p class="text-xs text-slate-400">Clique para ajustar quantidades</p>
+            </div>
+            <div id="stock-list" class="space-y-2"></div>
+        </section>
+
+        <section id="tab-content-report" class="hidden space-y-4">
+            <div class="flex justify-between items-center bg-slate-900 text-white p-4 rounded-xl shadow-lg">
+                <div>
+                    <h2 class="text-sm font-bold uppercase">Compras</h2>
+                    <p class="text-[10px] text-slate-400" id="report-count">0 itens críticos</p>
+                </div>
+                <button onclick="shareReport()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors active:scale-95">
+                    <i class="fab fa-whatsapp mr-1"></i> Enviar
+                </button>
+            </div>
+            <div id="report-list" class="space-y-2"></div>
+        </section>
+    </main>
+
+    <!-- Modal e Toast (Mesma lógica anterior) -->
+    <div id="modal-product" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-200">
+            <div class="bg-slate-50 border-b p-4 flex justify-between items-center">
+                <h3 id="modal-title" class="text-sm font-bold text-slate-700 uppercase">Configurar Item</h3>
+                <button onclick="closeModal()" class="text-slate-400"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="form-product" class="p-6 space-y-4">
+                <input type="hidden" id="p-id">
+                <div class="space-y-1"><label class="text-[10px] font-bold text-slate-400 uppercase">Nome</label><input type="text" id="p-name" required class="w-full p-3 bg-slate-50 rounded-lg border focus:ring-2 focus:ring-blue-500 outline-none"></div>
+                <div class="space-y-1">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Categoria</label>
+                    <select id="p-category" class="w-full p-3 bg-slate-50 rounded-lg border outline-none">
+                        <option value="Limpeza">Limpeza Geral</option><option value="Higiene">Higiene</option><option value="Cozinha">Cozinha</option><option value="Outros">Outros</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="text-center"><label class="block text-[8px] font-bold text-slate-400 mb-1">ATUAL</label><input type="number" id="p-current" value="0" class="w-full p-2 bg-slate-50 rounded border text-center font-bold"></div>
+                    <div class="text-center"><label class="block text-[8px] font-bold text-amber-500 mb-1">MÍNIMO</label><input type="number" id="p-min" value="1" class="w-full p-2 bg-slate-50 rounded border border-amber-200 text-center font-bold text-amber-600"></div>
+                    <div class="text-center"><label class="block text-[8px] font-bold text-blue-500 mb-1">IDEAL</label><input type="number" id="p-target" value="5" class="w-full p-2 bg-slate-50 rounded border border-blue-200 text-center font-bold text-blue-600"></div>
+                </div>
+                <button type="submit" class="w-full py-4 bg-slate-800 text-white rounded-xl font-bold uppercase text-xs tracking-widest mt-4">Confirmar Dados</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed top-24 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-6 py-2 rounded-full text-[10px] font-bold uppercase opacity-0 transition-all shadow-lg z-[110] pointer-events-none"></div>
+
+    <script>
+        // Registro do Service Worker para PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(err => console.log('SW falhou:', err));
+            });
+        }
+
+        const initialData = [
+            { id: 1, name: "Detergente", category: "Limpeza", current: 5, min: 3, target: 12 },
+            { id: 2, name: "Limpa Vidro", category: "Limpeza", current: 2, min: 2, target: 6 },
+            { id: 3, name: "Saco Plástico P", category: "Limpeza", current: 10, min: 5, target: 20 },
+            { id: 4, name: "Saco Plástico G", category: "Limpeza", current: 4, min: 5, target: 15 },
+            { id: 5, name: "Desinfetante", category: "Limpeza", current: 8, min: 4, target: 10 },
+            { id: 6, name: "Esponja", category: "Limpeza", current: 12, min: 6, target: 20 },
+            { id: 7, name: "Pano Descartável", category: "Limpeza", current: 50, min: 20, target: 100 },
+            { id: 8, name: "Vassoura Piassava", category: "Limpeza", current: 1, min: 2, target: 4 },
+            { id: 9, name: "Vassoura Pelo", category: "Limpeza", current: 2, min: 2, target: 4 },
+            { id: 10, name: "Baldes", category: "Limpeza", current: 3, min: 2, target: 5 },
+            { id: 11, name: "Papel Toalha", category: "Higiene", current: 6, min: 10, target: 24 },
+            { id: 12, name: "Copo Descartável", category: "Outros", current: 100, min: 200, target: 1000 },
+            { id: 13, name: "Flanela", category: "Limpeza", current: 5, min: 5, target: 10 },
+            { id: 14, name: "Álcool", category: "Limpeza", current: 3, min: 5, target: 12 }
+        ];
+
+        let products = JSON.parse(localStorage.getItem('stock_pro_v5')) || initialData;
+
+        function save() { localStorage.setItem('stock_pro_v5', JSON.stringify(products)); render(); }
+        function showToast(msg) { const t = document.getElementById('toast'); t.innerText = msg; t.classList.replace('opacity-0', 'opacity-100'); setTimeout(() => t.classList.replace('opacity-100', 'opacity-0'), 2000); }
+        function switchTab(tab) { ['catalog', 'stock', 'report'].forEach(t => { document.getElementById(`tab-content-${t}`).classList.add('hidden'); document.getElementById(`nav-${t}`).classList.remove('active'); }); document.getElementById(`tab-content-${tab}`).classList.remove('hidden'); document.getElementById(`nav-${tab}`).classList.add('active'); }
+        function toggleProduct(id) { const el = document.getElementById(`prod-item-${id}`); const isExpanded = el.classList.contains('expanded'); document.querySelectorAll('.product-item').forEach(item => item.classList.remove('expanded')); if (!isExpanded) el.classList.add('expanded'); }
+
+        function openModal(id = null) {
+            const modal = document.getElementById('modal-product');
+            if (id) {
+                const p = products.find(x => x.id === id);
+                document.getElementById('p-id').value = p.id;
+                document.getElementById('p-name').value = p.name;
+                document.getElementById('p-category').value = p.category;
+                document.getElementById('p-current').value = p.current;
+                document.getElementById('p-min').value = p.min;
+                document.getElementById('p-target').value = p.target;
+            } else {
+                document.getElementById('form-product').reset(); document.getElementById('p-id').value = "";
+            }
+            modal.classList.remove('hidden');
+        }
+        function closeModal() { document.getElementById('modal-product').classList.add('hidden'); }
+
+        document.getElementById('form-product').onsubmit = (e) => {
+            e.preventDefault();
+            const id = document.getElementById('p-id').value;
+            const data = {
+                id: id ? parseInt(id) : Date.now(),
+                name: document.getElementById('p-name').value,
+                category: document.getElementById('p-category').value,
+                current: parseInt(document.getElementById('p-current').value),
+                min: parseInt(document.getElementById('p-min').value),
+                target: parseInt(document.getElementById('p-target').value)
+            };
+            if (id) { const idx = products.findIndex(x => x.id === parseInt(id)); products[idx] = data; } 
+            else { products.push(data); }
+            save(); closeModal(); showToast('Dados Guardados');
+        };
+
+        function updateQty(id, delta) { const p = products.find(x => x.id === id); p.current = Math.max(0, p.current + delta); save(); }
+        function deleteItem(id) { if (confirm("Eliminar este item?")) { products = products.filter(x => x.id !== id); save(); } }
+
+        function shareReport() {
+            const critical = products.filter(p => p.current <= p.min);
+            if (critical.length === 0) return alert("Stock em ordem!");
+            let text = "🚨 *PEDIDO DE COMPRA*\n\n";
+            critical.forEach(p => { text += `• *${p.name}*: ${Math.max(1, p.target - p.current)} un.\n`; });
+            const el = document.createElement('textarea'); el.value = text; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); showToast('Lista copiada!');
+        }
+
+        function render() {
+            const catalog = document.getElementById('catalog-list');
+            const stock = document.getElementById('stock-list');
+            const report = document.getElementById('report-list');
+            const criticalItems = products.filter(p => p.current <= p.min);
+            document.getElementById('report-count').innerText = `${criticalItems.length} itens críticos`;
+
+            catalog.innerHTML = products.map(p => `
+                <div id="prod-item-${p.id}" class="product-item bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div onclick="toggleProduct(${p.id})" class="p-4 flex justify-between items-center cursor-pointer active:bg-slate-50">
+                        <span class="font-bold text-slate-700 text-sm">${p.name}</span>
+                        <i class="fas fa-chevron-down text-slate-300 chevron transition-transform text-xs"></i>
+                    </div>
+                    <div class="product-details bg-slate-50/50">
+                        <div class="p-4 pt-0 border-t border-slate-100">
+                            <div class="grid grid-cols-2 gap-2 mt-4">
+                                <div><p class="text-[8px] font-bold text-slate-400 uppercase">Categoria</p><p class="text-xs font-semibold text-slate-600">${p.category}</p></div>
+                                <div class="text-right"><p class="text-[8px] font-bold text-slate-400 uppercase">Min/Ideal</p><p class="text-xs font-semibold text-slate-600">${p.min} / ${p.target}</p></div>
+                            </div>
+                            <div class="flex gap-2 mt-4">
+                                <button onclick="openModal(${p.id})" class="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 uppercase transition-colors"><i class="fas fa-edit mr-1"></i> Editar</button>
+                                <button onclick="deleteItem(${p.id})" class="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-400 uppercase transition-colors"><i class="fas fa-trash-alt mr-1"></i> Apagar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            stock.innerHTML = products.map(p => {
+                const isLow = p.current <= p.min;
+                const isZero = p.current === 0;
+                let border = "card-ok border-slate-200";
+                if (isZero) border = "card-critical border-red-200 bg-red-50/30";
+                else if (isLow) border = "card-warning border-amber-200 bg-amber-50/30";
+                return `
+                <div class="bg-white p-4 rounded-xl shadow-sm border ${border} flex justify-between items-center">
+                    <div><h4 class="font-bold text-slate-800 text-sm">${p.name}</h4><span class="text-[9px] font-black uppercase ${isLow ? 'text-amber-600' : 'text-slate-400'}">Min: ${p.min} | Ideal: ${p.target}</span></div>
+                    <div class="flex items-center bg-slate-100 p-1 rounded-lg">
+                        <button onclick="updateQty(${p.id}, -1)" class="w-10 h-10 bg-white rounded-md shadow-sm font-bold">-</button>
+                        <span class="w-10 text-center font-black text-slate-700">${p.current}</span>
+                        <button onclick="updateQty(${p.id}, 1)" class="w-10 h-10 bg-white rounded-md shadow-sm font-bold">+</button>
+                    </div>
+                </div>`;
+            }).join('');
+
+            report.innerHTML = criticalItems.length === 0 ? `<div class="bg-white rounded-xl p-10 text-center border border-dashed border-slate-300 opacity-50"><p class="text-xs font-bold uppercase">Stock Completo</p></div>` : 
+            criticalItems.map(p => `
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-red-500 flex justify-between items-center">
+                    <div><p class="font-bold text-slate-800 text-sm">${p.name}</p><p class="text-[10px] text-red-500 font-bold uppercase">Stock: ${p.current} (Faltam ${p.target - p.current})</p></div>
+                    <div class="bg-slate-800 text-white px-4 py-2 rounded-lg text-center"><span class="text-[8px] font-bold block opacity-50 uppercase">Pedir</span><span class="text-base font-black">${Math.max(1, p.target - p.current)}</span></div>
+                </div>`).join('');
+        }
+        render();
+    </script>
+</body>
+</html>
